@@ -177,9 +177,9 @@
 
             setScore(){
                 //increase score as player touches the hat
-                var score = Number(this.scoreDiv.innerHTML) + 1; // increase score
+                let score = Number(this.scoreDiv.innerHTML) + 1; // increase score
                 this.scoreDiv.innerHTML = score.toString();
-                var best = this.bestScoreDiv.innerHTML.split(' ');
+                let best = this.bestScoreDiv.innerHTML.split(' ');
                 if ( score > Number( best[1] ) ) {
                     this.bestScoreDiv.innerHTML = best[0] + " " + score.toString();
                 }
