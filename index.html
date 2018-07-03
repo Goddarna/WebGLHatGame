@@ -1,0 +1,270 @@
+
+<!doctype html>
+<html>
+    <head>
+        <title>Web GL Hat Game</title>
+        <h1>You've Dropped Your Hat M8!</h1>
+    </head>
+
+    <body>
+        <div id="container"></div>
+        <div id= "score_results">
+            <h2>Score:</h2>
+            <div id="score">0</div>
+            <div id="bestScore">Best: 0</div>
+        </div>
+    
+    </body>
+
+    <footer>
+        <p>© Copyright 2018, Nikita Goddard</p>
+    </footer>
+
+    <style>
+        h1 {
+            font-family: "Arial", "Sans-serif";
+            font-size: 120%;
+            padding: 20px;
+            color:white;
+            background-color:#f44286;
+        }
+
+        h2 {
+            margin: auto;
+            font-size: 110%;
+        }
+
+        body {
+            font-family: "Arial", "Sans-serif";
+            background-color: #262626;
+            color: white;
+            text-align: center;
+            height: 100%;
+        }
+
+        footer {
+            padding: 10px;
+            color:white;
+            background-color:#f44286;
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            left: 0;
+ 
+        }
+
+        #container {
+            width: 500px;
+            height: 500px;
+            background-color: #8AD3EB;
+            cursor: none;
+            border: 2px solid #ffffff;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+
+        #score_results {
+            display: inline-block;
+        
+        }
+        
+    </style>
+
+    <script src = "./three.min.js" ></script>
+
+
+    <script>
+    window.addEventListener('load', init, true);
+
+    function init(){
+
+        let game = new Game();
+        game.initialise();
+
+    }
+        
+    class Game {
+        constructor(){
+            this.container = document.getElementById("container");
+            this.scoreDiv = document.getElementById("score");
+			this.bestScoreDiv = document.getElementById("bestScore");
+            this.scene = new THREE.Scene();
+            this.renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+            this.camera = new THREE.PerspectiveCamera(50, this.container.clientWidth/this.container.clientHeight, 0.1, 1000);
+            this.backgroundScene = new THREE.Scene();
+            this.backgroundCamera = new THREE.Camera();
+            this.nClouds = 30;
+            this.cloudRangeX = 550;
+            this.cloudRangeY = 700;
+            this.clouds = [];
+            this.cloudSpeed = 1;
+            this.hat;
+            this.hatRange = 350;
+            this.player;
+            this.boundMouseMove = e => this.mouseMoveListener(e);
+            this.mouse = new THREE.Vector2();
+            this.windSpeed = 0.5;
+        
+        }
+
+        initialise(){
+            //append renderer to container
+            this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+            document.body.appendChild(this.container);
+            this.container.appendChild(this.renderer.domElement);
+
+            this.camera.position.z = 400;
+
+            //load assets
+            this.loadClouds();
+            this.loadHat();
+            this.loadPlayer();
+
+            this.container.addEventListener('mousemove', this.boundMouseMove, false);
+
+            let render = () => {
+                requestAnimationFrame(render);
+
+                for (var i = 0; i < this.clouds.length; i++){
+					if (this.clouds[i].position.y < -this.cloudRangeY/2) { // if the item has moved below the container
+						this.clouds[i].position.x = this.cloudRangeX/2 - this.cloudRangeX * Math.random(); //set new x-coord for variety
+						this.clouds[i].position.y = this.cloudRangeY/2; // set y-coord at top of container
+					} else {
+						if (this.clouds[i].position.distanceTo(this.player.position ) < 2 * 10) { // if there's a player-cloud collision
+							this.resetScore();
+						}
+						this.clouds[i].position.y -= this.cloudSpeed; // translate clouds downwards
+                    }
+                }
+
+                // check for player-cloud collision
+				if (this.player.position.distanceTo( this.hat.position ) < 2 * 11 ) {
+					this.hat.position.x = this.hatRange/2 - this.hatRange * Math.random();// give the hat a random xy coord
+					this.hat.position.y = this.hatRange/2 - this.hatRange * Math.random();
+
+					this.setScore();
+                }
+                
+                this.player.rotation.y -= 0.01 * 2;
+
+        
+                this.renderer.render(this.scene, this.camera);
+            }
+
+            render();
+            }
+
+            mouseMoveListener(e){
+                //set and get mouse coordinates
+                let rect = this.container.getBoundingClientRect;
+                this.mouse.x = ( e.clientX - this.container.offsetLeft );
+				this.mouse.y = ( e.clientY - this.container.offsetTop );
+                let zoomFactor = 1;
+
+                this.mouse.x = (this.mouse.x - (this.container.clientWidth/2)) / zoomFactor;
+                this.mouse.y = ((this.container.clientHeight/2) - this.mouse.y) / zoomFactor;
+
+                this.player.position.set(this.mouse.x, this.mouse.y, 0.0);
+            }
+
+            resetScore(){
+                //resets when player touches the clouds
+                this.scoreDiv.innerHTML = "0";
+                this.cloudSpeed = 1;
+            }
+
+            setScore(){
+                //increase score as player touches the hat
+                var score = Number(this.scoreDiv.innerHTML) + 1; // increase score
+                this.scoreDiv.innerHTML = score.toString();
+                var best = this.bestScoreDiv.innerHTML.split(' ');
+                if ( score > Number( best[1] ) ) {
+                    this.bestScoreDiv.innerHTML = best[0] + " " + score.toString();
+                }
+
+                //increase speed of clouds when a score threshold has been reached
+                switch (score){
+                    case 10:
+                        this.cloudSpeed = 2;
+                        break;
+                    case 25:
+                        this.cloudSpeed = 3;
+                        break;
+                    case 40:
+                        this.cloudSpeed = 4;
+                        break;
+                    case 55: 
+                        this.cloudSpeed = 5;
+                        break;
+                }
+            }
+
+            loadPlayer(){
+
+                let player_geometry, player_material;
+
+                let jsonLoader = new THREE.JSONLoader();
+                this.player = new THREE.Mesh();
+
+                jsonLoader.load("assets/player_head.json", (geometry) => {
+                    player_geometry = geometry;
+                    player_material = new THREE.MeshBasicMaterial({color: '#f44286'});
+                    this.player = new THREE.Mesh(player_geometry, player_material);
+                    this.player.scale.set(15, 15, 15);
+                    this.player.rotation.y = Math.PI /2;
+                    this.scene.add(this.player);
+
+                });
+
+                /*let geometry_player = new THREE.SphereGeometry(10, 10, 10, 0, Math.PI * 2, 0, Math.PI * 2);
+                let material_player = new THREE.MeshBasicMaterial({color: '#E0DC09'});
+                this.player = new THREE.Mesh(geometry_player, material_player);
+                this.scene.add(this.player);*/
+            }
+
+            loadHat(){
+           
+                let hat_geometry, hat_material;
+
+                let jsonLoader = new THREE.JSONLoader();
+                this.hat = new THREE.Mesh();
+                jsonLoader.load("assets/hat.json", (geometry) => {
+                    hat_geometry = geometry;
+                    hat_material = new THREE.MeshBasicMaterial({wireframe: true, wireframeLineWidth: 0.1, color: '#262626'});
+                    this.hat = new THREE.Mesh(hat_geometry, hat_material);
+                    this.hat.position.set(this.hatRange / 2 - this.hatRange * Math.random(), this.hatRange / 2 - this.hatRange * Math.random(), 0.0);
+                    this.hat.scale.set(10, 10, 10);
+                    this.hat.position.x = Math.PI /180;
+                    this.scene.add(this.hat);
+                });
+
+            }
+
+            loadClouds(){
+                let cloud_geometry, cloud_material;
+
+                let jsonLoader = new THREE.JSONLoader();
+                jsonLoader.load("assets/cloud.json", (geometry) => {
+                    cloud_geometry = geometry;
+                    cloud_material = new THREE.MeshBasicMaterial({color: '#ffffff'});
+
+                    for (let i = 0; i < this.nClouds; i++){
+                        let mesh = new THREE.Mesh(cloud_geometry, cloud_material);
+                        mesh.position.set(this.cloudRangeX / 2 - this.cloudRangeX * Math.random(), this.cloudRangeY / 2 - this.cloudRangeY * Math.random(), 0.0);
+                        mesh.scale.set(15, 15, 15);
+                        this.scene.add(mesh);
+                        this.clouds.push(mesh);
+                    }
+                });
+                
+        
+            }
+            
+    }
+        
+    </script> 
+
+
+</html>
